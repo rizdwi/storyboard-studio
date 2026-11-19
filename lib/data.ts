@@ -153,7 +153,7 @@ export const paletteFromAccent = (accent: string): ArtStylePreset["palette"] => 
 export const PROVIDER_KINDS: { id: ProviderKind; label: string; base_url: string; textHint: string; imageHint: string; needsKey: boolean }[] = [
   { id: "OpenAi", label: "OpenAI", base_url: "https://api.openai.com/v1", textHint: "mis. gpt-4.1-mini", imageHint: "mis. gpt-image-1", needsKey: true },
   { id: "Anthropic", label: "Anthropic", base_url: "https://api.anthropic.com", textHint: "mis. claude-sonnet-4-5", imageHint: "tidak didukung", needsKey: true },
-  { id: "Gemini", label: "Google Gemini", base_url: "https://generativelanguage.googleapis.com", textHint: "mis. gemini-2.5-flash", imageHint: "mis. gemini-2.5-flash-image", needsKey: true },
+  { id: "Gemini", label: "Google Gemini", base_url: "https://generativelanguage.googleapis.com", textHint: "mis. gemini-3.8-flash", imageHint: "mis. gemini-2.5-flash-image", needsKey: true },
   { id: "XaiGrok", label: "Grok / xAI", base_url: "https://api.x.ai/v1", textHint: "mis. grok-4", imageHint: "mis. grok-2-image", needsKey: true },
   { id: "OpenRouter", label: "OpenRouter", base_url: "https://openrouter.ai/api/v1", textHint: "mis. anthropic/claude-sonnet-4.5", imageHint: "mis. google/gemini-2.5-flash-image", needsKey: true },
   { id: "OllamaLocal", label: "Ollama Lokal", base_url: "http://localhost:11434/v1", textHint: "mis. llama3.1", imageHint: "tidak didukung", needsKey: false },
@@ -176,7 +176,7 @@ export const DEFAULT_GEMINI_ID = "default-gemini-google";
 export const defaultProfiles = (): ProviderProfile[] => [
   {
     id: DEFAULT_GEMINI_ID, name: "Gemini (Google)", kind: "Gemini",
-    base_url: "https://generativelanguage.googleapis.com", text_model: "gemini-2.5-flash",
+    base_url: "https://generativelanguage.googleapis.com", text_model: "gemini-3.8-flash",
     image_model: "gemini-2.5-flash-image", api_version: "", timeout_secs: 180,
     max_output_tokens: 8192, temperature: 0.8,
   },

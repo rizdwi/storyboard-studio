@@ -48,6 +48,9 @@ export const loadSettings = (): Settings => {
     const REMOVED_HYDROGEN_ID = "default-hydrogen-9router";
     s.profiles = s.profiles.filter((p) => p.id !== REMOVED_HYDROGEN_ID);
     if (s.textProfileId === REMOVED_HYDROGEN_ID) s.textProfileId = DEFAULT_GEMINI_ID;
+    // 19 Nov: gemini-2.5-flash dipensiunkan Google (404 "no longer available to new users") —
+    // perbarui model teks profil Gemini yang tersimpan ke gemini-3.8-flash (sesuai saran Google).
+    for (const p of s.profiles) if (p.id === DEFAULT_GEMINI_ID && p.text_model === "gemini-2.5-flash") p.text_model = "gemini-3.8-flash";
     if (!s.textProfileId) s.textProfileId = DEFAULT_GEMINI_ID;
     if (!s.imageProfileId) s.imageProfileId = DEFAULT_GEMINI_ID;
     return s;
