@@ -289,7 +289,6 @@ async function test(p: ProviderProfile, key?: string): Promise<Out> {
 /** Key cadangan dari env server — dipakai hanya bila profil belum punya key sendiri (BYOK).
     Key tidak pernah ditulis ke repo; env diisi di .env.local / Vercel. */
 const envKeyFor = (p: ProviderProfile, op: Body["op"]): string | undefined => {
-  if (p.id === "default-hydrogen-9router") return process.env.NINE_ROUTER_API_KEY || undefined;
   if (p.kind === "Gemini") {
     return op === "image"
       ? process.env.GEMINI_IMAGE_API_KEY || process.env.GEMINI_API_KEY || undefined
@@ -303,7 +302,6 @@ export async function GET() {
   return Response.json({
     ok: true,
     serverKeys: {
-      hydrogen: !!process.env.NINE_ROUTER_API_KEY,
       gemini: !!process.env.GEMINI_API_KEY,
       geminiImage: !!process.env.GEMINI_IMAGE_API_KEY,
     },

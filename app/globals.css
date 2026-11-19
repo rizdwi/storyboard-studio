@@ -92,8 +92,9 @@ body::before {
   z-index: 1;
 }
 
-/* Glass surfaces: frosted panels over the aurora backdrop (both themes). */
-.bar,
+/* Glass surfaces: frosted panels over the aurora backdrop (both themes).
+   .bar TIDAK di sini: backdrop-filter di .bar menjadikannya containing block
+   bagi .steps yang position:fixed di mobile (lihat aturan .bar di bawah). */
 .panel,
 .card,
 .style-list,
@@ -271,6 +272,16 @@ button {
   padding: 0.5rem 1rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+}
+
+/* Header tanpa backdrop-filter: filter di .bar menjadikannya containing block
+   bagi .steps yang position:fixed di mobile, sehingga pil langkah menempel di
+   bawah header dan menutupi tombol AI/tema (bug 19 Nov, terlihat di HP asli;
+   headless shell tidak menerapkan containing-block ini sehingga lolos verifikasi).
+   Sebagai ganti blur, header memakai latar yang hampir solid. */
+.bar {
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  box-shadow: var(--elev-shadow);
 }
 
 .bar-start,
