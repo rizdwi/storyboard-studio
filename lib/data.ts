@@ -46,7 +46,7 @@ export interface Project {
   updated_at: number;
 }
 
-export type ProviderKind = "OpenAi" | "Anthropic" | "Gemini" | "XaiGrok" | "OpenRouter" | "OllamaLocal" | "OpenAiCompatible" | "GeminiWeb";
+export type ProviderKind = "OpenAi" | "Anthropic" | "Gemini" | "XaiGrok" | "OpenRouter" | "OllamaLocal" | "OpenAiCompatible" | "GeminiWeb" | "OvhFree";
 
 export interface ProviderProfile {
   id: string;
@@ -156,6 +156,7 @@ export const PROVIDER_KINDS: { id: ProviderKind; label: string; base_url: string
   { id: "Anthropic", label: "Anthropic", base_url: "https://api.anthropic.com", textHint: "mis. claude-sonnet-4-5", imageHint: "tidak didukung", needsKey: true },
   { id: "Gemini", label: "Google Gemini", base_url: "https://generativelanguage.googleapis.com", textHint: "mis. gemini-3.8-flash", imageHint: "mis. gemini-2.5-flash-image", needsKey: true },
   { id: "GeminiWeb", label: "Gemini Web (Cookie)", base_url: "", textHint: "hydrogen, neon, atau carbon", imageHint: "sama dengan model teks", needsKey: false },
+  { id: "OvhFree", label: "OVH Gratis", base_url: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", textHint: "gpt-oss-120b", imageHint: "tidak didukung (teks saja)", needsKey: false },
   { id: "XaiGrok", label: "Grok / xAI", base_url: "https://api.x.ai/v1", textHint: "mis. grok-4", imageHint: "mis. grok-2-image", needsKey: true },
   { id: "OpenRouter", label: "OpenRouter", base_url: "https://openrouter.ai/api/v1", textHint: "mis. anthropic/claude-sonnet-4.5", imageHint: "mis. google/gemini-2.5-flash-image", needsKey: true },
   { id: "OllamaLocal", label: "Ollama Lokal", base_url: "http://localhost:11434/v1", textHint: "mis. llama3.1", imageHint: "tidak didukung", needsKey: false },
@@ -177,6 +178,10 @@ export const DEFAULT_GEMINI_ID = "default-gemini-google";
 /** Profil Gemini Web (cookie sesi Google, via /api/web-ai): model web Hydrogen/Neon/Carbon.
     Cookie TIDAK disimpan di sini — dibaca dari env server (GEMINI_WEB_PSID + GEMINI_WEB_PSIDTS). */
 export const DEFAULT_WEB_ID = "default-gemini-web";
+/** Profil OVH Gratis (19 Nov, dari mnfst/awesome-free-llm-apis): gpt-oss-120b anonim,
+    tanpa key dan tanpa daftar — terverifikasi live jawab HTTP 200. TEKS SAJA (tanpa gambar);
+    batas anonim 2 req/menit per IP. Peran gambar tetap Gemini. */
+export const DEFAULT_OVH_ID = "default-ovh-gratis";
 
 export const defaultProfiles = (): ProviderProfile[] => [
   {
@@ -190,6 +195,11 @@ export const defaultProfiles = (): ProviderProfile[] => [
     base_url: "", text_model: "hydrogen", image_model: "hydrogen",
     api_version: "", timeout_secs: 180, max_output_tokens: 8192, temperature: 0.8,
     extended_thinking: true,
+  },
+  {
+    id: DEFAULT_OVH_ID, name: "OVH Gratis", kind: "OvhFree",
+    base_url: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", text_model: "gpt-oss-120b",
+    image_model: "", api_version: "", timeout_secs: 180, max_output_tokens: 8192, temperature: 0.8,
   },
 ];
 
