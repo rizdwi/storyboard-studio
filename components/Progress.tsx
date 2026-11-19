@@ -46,9 +46,7 @@ export default function Progress({
           <strong>{label}</strong>
           {detail && <span className="dim"> · {detail}</span>}
         </span>
-        <span className="prog-meta mono">
-          {pct}% · {secs} dtk
-        </span>
+        <span className="prog-meta mono">{secs} dtk</span>
         {onCancel && !compact && (
           <button type="button" className="btn ghost sm danger" onClick={onCancel}>Batal</button>
         )}
