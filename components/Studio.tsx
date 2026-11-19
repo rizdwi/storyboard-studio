@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { newProject, PROVIDER_KINDS } from "@/lib/data";
 import type { Project } from "@/lib/data";
 import { ai, db, getKey, loadSettings, readFile, saveSettings } from "@/lib/store";
-import type { AiResult, Settings as S } from "@/lib/store";
+import type { AiOpts, AiResult, Settings as S } from "@/lib/store";
 import { StepCharacter, StepScript, StepStyle, StepTheme } from "./Steps";
 import Board from "./Board";
 import Settings from "./Settings";
@@ -12,8 +12,8 @@ export type Ctx = {
   p: Project;
   set: (fn: (p: Project) => Project) => void;
   go: (step: number) => void;
-  aiText: (prompt: string, system: string) => Promise<AiResult>;
-  aiImage: (prompt: string) => Promise<AiResult>;
+  aiText: (prompt: string, system: string, opts?: AiOpts) => Promise<AiResult>;
+  aiImage: (prompt: string, opts?: AiOpts) => Promise<AiResult>;
   hasText: boolean;
   hasImage: boolean;
   openSettings: () => void;
@@ -99,8 +99,8 @@ export default function Studio() {
     p, set, go: setStep,
     hasText: ready(textProfile),
     hasImage: ready(imageProfile) && !!imageProfile?.image_model,
-    aiText: (prompt, system) => textProfile ? ai(textProfile, "text", prompt, system) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Teks. Atur di Pengaturan AI." }),
-    aiImage: (prompt) => imageProfile ? ai(imageProfile, "image", prompt) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Gambar. Atur di Pengaturan AI." }),
+    aiText: (prompt, system, opts) => textProfile ? ai(textProfile, "text", prompt, system, opts) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Teks. Atur di Pengaturan AI." }),
+    aiImage: (prompt, opts) => imageProfile ? ai(imageProfile, "image", prompt, "", opts) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Gambar. Atur di Pengaturan AI." }),
     openSettings: () => setShowSettings(true),
   };
 

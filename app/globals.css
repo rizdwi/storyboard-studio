@@ -619,6 +619,88 @@ textarea {
   border: 1px solid var(--ok);
 }
 
+/* AI progress bar */
+
+.prog {
+  margin: 0.5rem 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.prog-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+}
+
+.prog-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.prog-meta {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.prog-track {
+  width: 100%;
+  height: 0.45rem;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.prog-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 240ms ease;
+}
+
+.prog.compact {
+  margin: 0;
+  padding: 0.5rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #f2efe9;
+  gap: 0.4rem;
+}
+
+.prog.compact .prog-head {
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+.prog.compact .prog-meta {
+  color: #d6d1c7;
+  font-size: 0.72rem;
+}
+
+.prog.compact .prog-track {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.prog-cancel {
+  align-self: center;
+  margin-top: 0.15rem;
+  background: #22252b;
+  color: #f2efe9;
+  border-color: #70798c;
+}
+
 /* Step 2: Story Style List */
 
 .style-list {

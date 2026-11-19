@@ -1,16 +1,19 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { newProfile, PROVIDER_KINDS } from "@/lib/data";
 import type { ProviderKind, ProviderProfile } from "@/lib/data";
 import { ai, getKey, keyHint, setKey } from "@/lib/store";
 import type { AiResult, Settings as S } from "@/lib/store";
+import Progress from "./Progress";
 
 export default function Settings({ settings, update, onClose }: { settings: S; update: (fn: (s: S) => S) => void; onClose: () => void }) {
   const [selectedId, setSelectedId] = useState(settings.textProfileId || settings.profiles[0]?.id || "");
   const [keyDraft, setKeyDraft] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const [testingAt, setTestingAt] = useState<number | null>(null);
   const [testRes, setTestRes] = useState<AiResult | null>(null);
+  const testCtrl = useRef<AbortController | null>(null);
+  const testing = testingAt !== null;
 
   const active = settings.profiles.find((p) => p.id === selectedId) ?? settings.profiles[0];
 
@@ -67,9 +70,12 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
 
   const runTest = async () => {
     if (!active) return;
-    setTesting(true); setTestRes(null);
-    const res = await ai(active, "test");
-    setTesting(false); setTestRes(res);
+    const ctrl = new AbortController();
+    testCtrl.current = ctrl;
+    setTestingAt(Date.now()); setTestRes(null);
+    const res = await ai(active, "test", "", "", { signal: ctrl.signal });
+    testCtrl.current = null;
+    setTestingAt(null); setTestRes(res);
   };
 
   const kindMeta = active ? PROVIDER_KINDS.find((k) => k.id === active.kind)! : null;
@@ -202,8 +208,8 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                   <div className="adv-grid">
                     <label className="field">
                       <span>Timeout (detik)</span>
-                      <input type="number" min={5} max={300} value={active.timeout_secs}
-                        onChange={(e) => patchProfile(active.id, { timeout_secs: Math.max(5, Math.min(300, +e.target.value || 60)) })} />
+                      <input type="number" min={10} max={300} value={active.timeout_secs}
+                        onChange={(e) => patchProfile(active.id, { timeout_secs: Math.max(10, Math.min(300, +e.target.value || 180)) })} />
                     </label>
                     <label className="field">
                       <span>Max output tokens</span>
@@ -230,6 +236,10 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                   <span className="spacer" />
                   <button type="button" className="btn ghost danger" onClick={() => removeProfile(active)}>Hapus profil</button>
                 </div>
+
+                {testingAt !== null && (
+                  <Progress label="Menguji koneksi ke provider…" startedAt={testingAt} onCancel={() => testCtrl.current?.abort()} />
+                )}
 
                 {testRes && (
                   <p className={testRes.ok ? "ok status-box" : "error status-box"} role="status">

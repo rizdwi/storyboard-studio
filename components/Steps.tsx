@@ -1,10 +1,11 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ART_STYLES, STORY_STYLES, activeArt, activePrefix, allArtStyles, buildPrompt, newShot, paletteFromAccent, retime, rollLabel, tc, uid } from "@/lib/data";
 import { parseTable } from "@/lib/parse";
 import { readFile } from "@/lib/store";
 import type { Ctx } from "./Studio";
 import Frame from "./Frame";
+import Progress from "./Progress";
 
 function Next({ label, to, go }: { label: string; to: number; go: (n: number) => void }) {
   return <div className="step-foot"><button className="btn primary" onClick={() => go(to)}>{label}</button></div>;
@@ -80,13 +81,19 @@ export function StepStyle({ p, set, go }: Ctx) {
 export function StepScript(ctx: Ctx) {
   const { p, set, go, hasText, aiText, openSettings } = ctx;
   const [tab, setTab] = useState<"script" | "table">("script");
-  const [busy, setBusy] = useState(false);
+  const [run, setRun] = useState<{ startedAt: number; phase: "connect" | "think" | "stream"; words: number } | null>(null);
   const [err, setErr] = useState("");
+  const ctrlRef = useRef<AbortController | null>(null);
+  const busy = !!run;
 
   const generate = async () => {
     if (p.script.trim() && !confirm("Script yang ada akan diganti hasil generate. Lanjutkan?")) return;
     const st = STORY_STYLES.find((s) => s.id === p.story_style.preset_id)!;
-    setBusy(true); setErr("");
+    const ctrl = new AbortController();
+    ctrlRef.current = ctrl;
+    const startedAt = Date.now();
+    setRun({ startedAt, phase: "connect", words: 0 });
+    setErr("");
     const r = await aiText(
       [
         `Judul: ${p.title}`, `Premis: ${p.premise || "(bebas, buat sendiri)"}`, `Target durasi: ${p.target_secs} detik`,
@@ -95,11 +102,25 @@ export function StepScript(ctx: Ctx) {
         `Format: untuk setiap beat tulis heading "[BEAT: nama] (perkiraan detik)", lalu deskripsi visual singkat, aksi karakter, dan baris VO/dialog bila ada.`,
       ].filter(Boolean).join("\n"),
       "Kamu penulis naskah video pendek vertikal 9:16 untuk TikTok, Reels, dan Shorts. Tulis dalam Bahasa Indonesia yang natural. Keluarkan hanya naskah, tanpa pengantar atau penutup.",
+      {
+        signal: ctrl.signal,
+        onProgress: (info) => {
+          const words = info.text.trim() ? info.text.trim().split(/\s+/).length : 0;
+          setRun({ startedAt, phase: info.phase, words });
+          if (info.text) set((x) => ({ ...x, script: info.text }));
+        },
+      },
     );
-    setBusy(false);
+    ctrlRef.current = null;
+    setRun(null);
     if (r.ok && r.text?.trim()) set((x) => ({ ...x, script: r.text!.trim() }));
+    else if (r.aborted) setErr("Generate script dibatalkan.");
     else setErr(r.error ? `${r.status ? `HTTP ${r.status}: ` : ""}${r.error}` : "Model mengembalikan teks kosong. Coba lagi atau ganti model.");
   };
+
+  const estWords = Math.max(80, Math.round(p.target_secs * 3.2));
+  const progLabel = run?.phase === "stream" ? "Menulis script…" : run?.phase === "think" ? "Model sedang menyusun alur…" : "Menghubungkan ke provider…";
+  const progPercent = run?.phase === "stream" ? Math.min(95, 18 + (run.words / estWords) * 77) : undefined;
 
   return (
     <section className="page wide">
@@ -120,8 +141,17 @@ export function StepScript(ctx: Ctx) {
             <span className="dim">{p.script.trim() ? `${p.script.trim().split(/\s+/).length} kata` : ""}</span>
           </div>
           {!hasText && <AiHint openSettings={openSettings} />}
+          {run && (
+            <Progress
+              label={progLabel}
+              detail={run.words ? `${run.words} kata diterima` : undefined}
+              startedAt={run.startedAt}
+              percent={progPercent}
+              onCancel={() => ctrlRef.current?.abort()}
+            />
+          )}
           {err && <p className="error" role="alert">{err}</p>}
-          <textarea className="script" value={p.script} aria-label="Script" disabled={busy}
+          <textarea className="script" value={p.script} aria-label="Script" readOnly={busy}
             onChange={(e) => set((x) => ({ ...x, script: e.target.value }))}
             placeholder={"Tulis atau tempel script di sini.\n\n[BEAT: Pemicu kecil] (0–5 dtk)\nRaka menjatuhkan kunci di tangga…"} />
           <Next label="Lanjut: karakter & gaya visual" to={4} go={go} />

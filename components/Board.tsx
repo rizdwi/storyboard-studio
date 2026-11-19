@@ -7,6 +7,7 @@ import { downscale, download, readFile } from "@/lib/store";
 import type { Ctx } from "./Studio";
 import Frame from "./Frame";
 import Animatic from "./Animatic";
+import Progress from "./Progress";
 
 type Filter = "all" | Roll;
 const LANES: { r: Roll; name: string }[] = [
@@ -42,13 +43,15 @@ export default function Board(ctx: Ctx) {
   const { p, set, go, hasText, hasImage, aiText, aiImage, openSettings } = ctx;
   const [filter, setFilter] = useState<Filter>("all");
   const [hl, setHl] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [run, setRun] = useState<{ startedAt: number; phase: "connect" | "think" | "stream"; chars: number; shots: number } | null>(null);
   const [err, setErr] = useState("");
-  const [imgBusy, setImgBusy] = useState<Record<string, boolean>>({});
+  const [imgRun, setImgRun] = useState<Record<string, { startedAt: number; ctrl: AbortController }>>({});
   const [imgErr, setImgErr] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState("");
   const [play, setPlay] = useState(false);
   const exportMenu = useRef<HTMLDetailsElement>(null);
+  const ctrlRef = useRef<AbortController | null>(null);
+  const busy = !!run;
 
   const art = activeArt(p);
   const total = p.shots.reduce((a, s) => a + s.duration_ms, 0);
@@ -68,7 +71,11 @@ export default function Board(ctx: Ctx) {
     const free = p.shots.filter((s) => !s.locked).length;
     if (free && !confirm(`${free} shot yang tidak dikunci akan diganti hasil generate. Shot yang dikunci tetap di posisinya. Lanjutkan?`)) return;
     const st = STORY_STYLES.find((s) => s.id === p.story_style.preset_id)!;
-    setBusy(true); setErr("");
+    const ctrl = new AbortController();
+    ctrlRef.current = ctrl;
+    const startedAt = Date.now();
+    setRun({ startedAt, phase: "connect", chars: 0, shots: 0 });
+    setErr("");
     const r = await aiText(
       [
         p.script.trim() ? `SCRIPT:\n${p.script}` : `PREMIS: ${p.premise || p.title}`,
@@ -79,17 +86,28 @@ export default function Board(ctx: Ctx) {
         `Total duration_s mendekati ${p.target_secs}. Isi teks dalam Bahasa Indonesia.`,
       ].filter(Boolean).join("\n\n"),
       "Kamu sutradara storyboard video vertikal 9:16. Balas HANYA dengan array JSON valid, tanpa markdown dan tanpa teks lain.",
+      {
+        signal: ctrl.signal,
+        onProgress: (info) => {
+          const shots = (info.text.match(/"title"\s*:/g) ?? []).length;
+          setRun({ startedAt, phase: info.phase, chars: info.chars, shots });
+        },
+      },
     );
-    setBusy(false);
+    ctrlRef.current = null;
+    setRun(null);
+    if (r.aborted) return setErr("Generate storyboard dibatalkan.");
     if (!r.ok) return setErr(`${r.status ? `HTTP ${r.status}: ` : ""}${r.error}`);
     try {
-      const t = r.text ?? "";
-      const items = JSON.parse(t.slice(t.indexOf("["), t.lastIndexOf("]") + 1));
+      const t = (r.text ?? "").trim();
+      const s = t.indexOf("["), e = t.lastIndexOf("]");
+      const parsed = s !== -1 && e > s ? JSON.parse(t.slice(s, e + 1)) : JSON.parse(t);
+      const items = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.shots) ? parsed.shots : [];
       const fresh = shotsFromAi(items);
       if (!fresh.length) throw new Error();
       setShots((old) => {
         const out: Shot[] = [];
-        for (const s of old) if (s.locked) out.push(s); else if (fresh.length) out.push(fresh.shift()!);
+        for (const x of old) if (x.locked) out.push(x); else if (fresh.length) out.push(fresh.shift()!);
         return [...out, ...fresh];
       });
     } catch {
@@ -104,13 +122,16 @@ export default function Board(ctx: Ctx) {
   };
 
   const genImage = async (s: Shot) => {
-    setImgBusy((b) => ({ ...b, [s.id]: true })); setImgErr((m) => ({ ...m, [s.id]: "" }));
-    const r = await aiImage(buildPrompt(p, s));
+    const ctrl = new AbortController();
+    setImgRun((b) => ({ ...b, [s.id]: { startedAt: Date.now(), ctrl } }));
+    setImgErr((m) => ({ ...m, [s.id]: "" }));
+    const r = await aiImage(buildPrompt(p, s), { signal: ctrl.signal });
     try {
+      if (r.aborted) throw new Error("Pembuatan gambar dibatalkan.");
       if (!r.ok || !r.image) throw new Error(`${r.status ? `HTTP ${r.status}: ` : ""}${r.error ?? "Gagal membuat gambar."}`);
       patch(s.id, { image: await downscale(r.image) });
     } catch (e) { setImgErr((m) => ({ ...m, [s.id]: (e as Error).message })); }
-    setImgBusy((b) => ({ ...b, [s.id]: false }));
+    setImgRun((b) => { const n = { ...b }; delete n[s.id]; return n; });
   };
 
   const copy = async (s: Shot) => {
@@ -163,6 +184,17 @@ export default function Board(ctx: Ctx) {
           </details>
         </div>
       </div>
+      {run && (
+        <div className="board-msg">
+          <Progress
+            label={run.phase === "stream" ? "Menyusun storyboard…" : run.phase === "think" ? "Model sedang merancang urutan shot…" : "Menghubungkan ke provider…"}
+            detail={run.shots ? `${run.shots} shot terdeteksi (${run.chars} karakter)` : run.chars ? `${run.chars} karakter diterima` : undefined}
+            startedAt={run.startedAt}
+            percent={run.phase === "stream" ? Math.min(95, 16 + (run.shots / Math.max(5, Math.round(p.target_secs / 4))) * 79) : undefined}
+            onCancel={() => ctrlRef.current?.abort()}
+          />
+        </div>
+      )}
       {err && <p className="error board-msg" role="alert">{err}</p>}
 
       {!p.shots.length ? (
@@ -198,13 +230,17 @@ export default function Board(ctx: Ctx) {
                     <div className="frame">
                       {s.image ? <img src={s.image} alt={`Gambar shot ${i + 1}`} /> : <Frame shot={s} pal={art.palette} />}
                       {s.rolls.includes("X") && <span className="badge">X-Roll</span>}
-                      {imgBusy[s.id] && <span className="frame-busy">Membuat gambar…</span>}
+                      {imgRun[s.id] && (
+                        <div className="frame-busy">
+                          <Progress compact label="Membuat gambar…" startedAt={imgRun[s.id].startedAt} onCancel={() => imgRun[s.id]?.ctrl.abort()} />
+                        </div>
+                      )}
                     </div>
                     <div className="frame-actions">
                       <label className="btn ghost sm">Unggah
                         <input type="file" accept="image/*" hidden onChange={(e) => { upload(s.id, e.target.files?.[0]); e.target.value = ""; }} />
                       </label>
-                      {hasImage && <button className="btn ghost sm" disabled={imgBusy[s.id]} onClick={() => genImage(s)}>Generate</button>}
+                      {hasImage && <button className="btn ghost sm" disabled={!!imgRun[s.id]} onClick={() => genImage(s)}>Generate</button>}
                       {s.image && <button className="btn ghost sm" onClick={() => patch(s.id, { image: undefined })}>Hapus</button>}
                     </div>
                     {imgErr[s.id] && <p className="error sm" role="alert">{imgErr[s.id]}</p>}
