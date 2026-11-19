@@ -460,7 +460,7 @@ button {
 }
 
 .page.wide {
-  max-width: 58rem;
+  max-width: 64rem;
 }
 
 .page h1 {
@@ -821,62 +821,98 @@ textarea {
 
 /* Step 4: Character & Art Styles */
 
+.sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.sec-head h2 {
+  margin: 0;
+}
+
 .art-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
 .art {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.6rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  padding: 0;
+  border-radius: 10px;
+  border: 2px solid var(--border);
   background: var(--surface);
   color: var(--ink);
-  font-size: 0.84rem;
-  font-weight: 500;
-  text-align: center;
+  overflow: hidden;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease;
+  transition: border-color 140ms ease;
 }
 
 .art:hover {
   border-color: var(--border-strong);
-  background: var(--surface-2);
 }
 
 .art.on {
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.art:has(:focus-visible) {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.art-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
   background: var(--surface-2);
+}
+
+.art-thumb img,
+.art-thumb svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  transition: transform 180ms ease;
+}
+
+.art:hover .art-thumb img {
+  transform: scale(1.03);
+}
+
+.art-tag {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(18, 19, 22, 0.88);
+  color: #f2efe9;
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
-.art.add {
-  justify-content: center;
-  border-style: dashed;
-  border-color: var(--border-strong);
-  color: var(--accent-text);
-  min-height: 9rem;
-}
-
-.art-frame {
+.art-name {
   display: block;
-  width: 4.1rem;
-  aspect-ratio: 9 / 16;
-  border-radius: 4px;
+  padding: 0.58rem 0.45rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
   overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.art-frame svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+  text-overflow: ellipsis;
 }
 
 .panel {
@@ -1749,6 +1785,10 @@ textarea {
   .prof-item {
     min-width: 10.5rem;
   }
+
+  .art-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* Mobile reflow */
@@ -1885,6 +1925,11 @@ textarea {
   .animatic-controls .check {
     margin-left: 0;
     width: 100%;
+  }
+
+  .art-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
   }
 }
 

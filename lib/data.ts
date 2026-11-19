@@ -26,6 +26,7 @@ export interface ArtStylePreset {
   name: string;
   prompt_prefix: string;
   palette: [string, string, string, string]; // latar, tengah, figur, aksen
+  preview?: string; // path gambar /styles/*.webp atau data URL unggahan kustom
   is_custom: boolean;
 }
 
@@ -133,17 +134,17 @@ export const STORY_STYLES: StoryStyle[] = [
 ];
 
 export const ART_STYLES: ArtStylePreset[] = [
-  { id: "cinematic", name: "Realistis Sinematik", is_custom: false, palette: ["#1c2024", "#3b4650", "#d9cbb8", "#e0a458"],
+  { id: "cinematic", name: "Realistis Sinematik", is_custom: false, preview: "/styles/cinematic.jpg", palette: ["#1c2024", "#3b4650", "#d9cbb8", "#e0a458"],
     prompt_prefix: "cinematic film still, photorealistic, 35mm anamorphic lens, natural lighting, shallow depth of field, subtle film grain" },
-  { id: "cartoon", name: "Kartun 2D", is_custom: false, palette: ["#24324a", "#4f7cac", "#f4e9d8", "#f08a4b"],
+  { id: "cartoon", name: "Kartun 2D", is_custom: false, preview: "/styles/cartoon.jpg", palette: ["#24324a", "#4f7cac", "#f4e9d8", "#f08a4b"],
     prompt_prefix: "2D cartoon illustration, clean bold outlines, flat colors, expressive characters, simple shading" },
-  { id: "sketch", name: "Sketsa Pensil", is_custom: false, palette: ["#2a2926", "#6b6862", "#e9e4da", "#c9b48a"],
+  { id: "sketch", name: "Sketsa Pensil", is_custom: false, preview: "/styles/sketch.jpg", palette: ["#2a2926", "#6b6862", "#e9e4da", "#c9b48a"],
     prompt_prefix: "graphite pencil storyboard sketch, loose linework, cross-hatching, monochrome, rough paper texture" },
-  { id: "lowpoly", name: "Low-Poly 3D", is_custom: false, palette: ["#1f2a2e", "#3f6b6a", "#e3d7c3", "#7fc1b0"],
+  { id: "lowpoly", name: "Low-Poly 3D", is_custom: false, preview: "/styles/lowpoly.jpg", palette: ["#1f2a2e", "#3f6b6a", "#e3d7c3", "#7fc1b0"],
     prompt_prefix: "low-poly 3D render, faceted geometry, soft studio lighting, minimal pastel palette" },
-  { id: "retro90", name: "Retro-Analog 90s", is_custom: false, palette: ["#2b1f24", "#7a4b54", "#f0dcc4", "#e86a5c"],
+  { id: "retro90", name: "Retro-Analog 90s", is_custom: false, preview: "/styles/retro90.jpg", palette: ["#2b1f24", "#7a4b54", "#f0dcc4", "#e86a5c"],
     prompt_prefix: "1990s analog camcorder footage, VHS color bleed, soft focus, date stamp aesthetic, warm faded colors" },
-  { id: "anime", name: "Anime", is_custom: false, palette: ["#1e2338", "#4a5a8c", "#f6e7e1", "#ef7a9a"],
+  { id: "anime", name: "Anime", is_custom: false, preview: "/styles/anime.jpg", palette: ["#1e2338", "#4a5a8c", "#f6e7e1", "#ef7a9a"],
     prompt_prefix: "anime key visual, cel shading, detailed background art, dramatic lighting, vibrant colors" },
 ];
 

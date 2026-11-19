@@ -2,7 +2,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ART_STYLES, STORY_STYLES, activeArt, activePrefix, allArtStyles, buildPrompt, newShot, paletteFromAccent, retime, rollLabel, tc, uid } from "@/lib/data";
 import { parseTable } from "@/lib/parse";
-import { readFile } from "@/lib/store";
+import { downscale, readFile } from "@/lib/store";
 import type { Ctx } from "./Studio";
 import Frame from "./Frame";
 import Progress from "./Progress";
@@ -211,7 +211,7 @@ function TableImport({ set, go }: Ctx) {
 }
 
 export function StepCharacter({ p, set, go }: Ctx) {
-  const [draft, setDraft] = useState<{ name: string; accent: string; prefix: string } | null>(null);
+  const [draft, setDraft] = useState<{ name: string; accent: string; prefix: string; preview?: string } | null>(null);
   const art = activeArt(p);
   const prefix = activePrefix(p);
   const sample = p.shots[0] ?? newShot({ action: "contoh aksi karakter" });
@@ -222,6 +222,8 @@ export function StepCharacter({ p, set, go }: Ctx) {
 
   const patchCustom = (patch: Partial<typeof art>) =>
     set((x) => ({ ...x, custom_art_styles: x.custom_art_styles.map((c) => (c.id === art.id ? { ...c, ...patch } : c)) }));
+
+  const loadThumb = async (f?: File) => (f ? downscale(await readFile(f, "url"), 400) : undefined);
 
   return (
     <section className="page wide">
@@ -239,17 +241,25 @@ export function StepCharacter({ p, set, go }: Ctx) {
         </label>
       </div>
 
-      <h2>Gaya visual</h2>
+      <div className="sec-head">
+        <h2>Gaya visual</h2>
+        <button className="btn sm" onClick={() => setDraft({ name: "", accent: "#e29a3b", prefix: "" })}>+ Tambah gaya kustom</button>
+      </div>
       <div className="art-grid" role="radiogroup" aria-label="Gaya visual">
         {allArtStyles(p).map((a) => (
           <label key={a.id} className={`art ${a.id === art.id ? "on" : ""}`}>
             <input type="radio" name="art" className="sr" checked={a.id === art.id} onChange={() => set((x) => ({ ...x, active_art_style_id: a.id }))} />
-            <span className="art-frame"><Frame shot={newShot()} pal={a.palette} guides={false} /></span>
-            <span>{a.name}</span>
-            {a.is_custom && <small className="dim">Kustom</small>}
+            <span className="art-thumb">
+              {a.preview ? (
+                <img src={a.preview} alt="" loading="lazy" />
+              ) : (
+                <Frame shot={newShot({ shot_type: "MCU" })} pal={a.palette} guides={false} />
+              )}
+              {a.is_custom && <span className="art-tag">Kustom</span>}
+            </span>
+            <span className="art-name">{a.name}</span>
           </label>
         ))}
-        <button className="art add" onClick={() => setDraft({ name: "", accent: "#e9a23b", prefix: "" })}>+ Tambah gaya kustom</button>
       </div>
 
       {draft && (
@@ -257,13 +267,24 @@ export function StepCharacter({ p, set, go }: Ctx) {
           <h3>Gaya kustom baru</h3>
           <div className="two">
             <label className="field"><span>Nama gaya</span><input autoFocus value={draft.name} placeholder="mis. Cyberpunk Watercolor" onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-            <label className="field narrow"><span>Warna aksen pratinjau</span><input type="color" value={draft.accent} onChange={(e) => setDraft({ ...draft, accent: e.target.value })} /></label>
+            <div className="row">
+              <label className="field narrow"><span>Warna aksen</span><input type="color" value={draft.accent} onChange={(e) => setDraft({ ...draft, accent: e.target.value })} /></label>
+              <div className="field"><span>Gambar contoh (opsional)</span>
+                <label className="btn sm">{draft.preview ? "Ganti gambar" : "Unggah gambar"}
+                  <input type="file" accept="image/*" hidden onChange={async (e) => { const url = await loadThumb(e.target.files?.[0]); if (url) setDraft((d) => d && { ...d, preview: url }); e.target.value = ""; }} />
+                </label>
+              </div>
+            </div>
           </div>
           <label className="field"><span>Prefix prompt</span><textarea rows={3} value={draft.prefix} placeholder="Gaya, medium, pencahayaan, palet warna, tekstur" onChange={(e) => setDraft({ ...draft, prefix: e.target.value })} /></label>
           <div className="row">
             <button className="btn primary" disabled={!draft.name.trim()} onClick={() => {
               const id = `custom-${uid()}`;
-              set((x) => ({ ...x, active_art_style_id: id, custom_art_styles: [...x.custom_art_styles, { id, name: draft.name.trim(), prompt_prefix: draft.prefix.trim(), palette: paletteFromAccent(draft.accent), is_custom: true }] }));
+              set((x) => ({
+                ...x,
+                active_art_style_id: id,
+                custom_art_styles: [...x.custom_art_styles, { id, name: draft.name.trim(), prompt_prefix: draft.prefix.trim(), palette: paletteFromAccent(draft.accent), preview: draft.preview, is_custom: true }],
+              }));
               setDraft(null);
             }}>Simpan gaya</button>
             <button className="btn ghost" onClick={() => setDraft(null)}>Batal</button>
@@ -275,6 +296,9 @@ export function StepCharacter({ p, set, go }: Ctx) {
         <div className="row">
           <label className="field inline"><span>Nama</span><input value={art.name} onChange={(e) => patchCustom({ name: e.target.value })} /></label>
           <label className="field inline"><span>Aksen</span><input type="color" value={art.palette[3]} onChange={(e) => patchCustom({ palette: paletteFromAccent(e.target.value) })} /></label>
+          <label className="btn ghost sm">{art.preview ? "Ganti gambar" : "Unggah gambar"}
+            <input type="file" accept="image/*" hidden onChange={async (e) => { const url = await loadThumb(e.target.files?.[0]); if (url) patchCustom({ preview: url }); e.target.value = ""; }} />
+          </label>
           <button className="btn ghost danger" onClick={() => confirm(`Hapus gaya "${art.name}"?`) &&
             set((x) => ({ ...x, active_art_style_id: ART_STYLES[0].id, custom_art_styles: x.custom_art_styles.filter((c) => c.id !== art.id) }))}>Hapus gaya ini</button>
         </div>
