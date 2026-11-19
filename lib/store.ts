@@ -52,13 +52,144 @@ export const setKey = (profileId: string, key: string) => {
 };
 export const keyHint = (profileId: string) => { const k = getKey(profileId); return k ? `••••${k.slice(-4)}` : ""; };
 
-export type AiResult = { ok: boolean; status?: number; text?: string; image?: string; error?: string };
-export async function ai(profile: ProviderProfile, op: "test" | "text" | "image", prompt = "", system = ""): Promise<AiResult> {
+export type AiProgress = {
+  phase: "connect" | "think" | "stream";
+  text: string;
+  chars: number;
+};
+
+export type AiOpts = {
+  signal?: AbortSignal;
+  onProgress?: (info: AiProgress) => void;
+};
+
+export type AiResult = { ok: boolean; status?: number; text?: string; image?: string; error?: string; aborted?: boolean };
+
+const isRemoteHost = () => typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname);
+const isLoopbackUrl = (raw: string) => {
+  try { return ["localhost", "127.0.0.1", "[::1]", "::1"].includes(new URL(raw).hostname); } catch { return false; }
+};
+
+/** Koneksi langsung dari browser untuk Ollama/endpoint localhost saat aplikasi dibuka dari domain Vercel. */
+async function directLocalAi(profile: ProviderProfile, op: "test" | "text", prompt: string, system: string, opts?: AiOpts): Promise<AiResult> {
+  const base = profile.base_url.replace(/\/+$/, "");
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  const key = getKey(profile.id);
+  if (key) headers.authorization = `Bearer ${key}`;
   try {
-    const r = await fetch("/api/ai", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profile, key: getKey(profile.id), op, prompt, system }) });
+    if (op === "test") {
+      const r = await fetch(`${base}/models`, { headers, signal: opts?.signal });
+      if (!r.ok) return { ok: false, status: r.status, error: await r.text() || r.statusText };
+      const j = await r.json().catch(() => ({}));
+      const n = (j?.data ?? j?.models ?? []).length;
+      return { ok: true, status: r.status, text: n ? `${n} model tersedia` : "Terhubung" };
+    }
+    if (!profile.text_model) return { ok: false, error: "Model teks belum diisi di profil ini." };
+    opts?.onProgress?.({ phase: "connect", text: "", chars: 0 });
+    const r = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers,
+      signal: opts?.signal,
+      body: JSON.stringify({
+        model: profile.text_model,
+        stream: true,
+        temperature: profile.temperature,
+        max_tokens: profile.max_output_tokens,
+        messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
+      }),
+    });
+    if (!r.ok) return { ok: false, status: r.status, error: (await r.text()).slice(0, 260) || r.statusText };
+    if (!r.body) return { ok: false, error: "Respons stream kosong dari endpoint lokal." };
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "", full = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split(/\r?\n/);
+      buf = lines.pop() ?? "";
+      for (const l of lines) {
+        const t = l.trim();
+        if (!t.startsWith("data:")) continue;
+        const p = t.slice(5).trim();
+        if (!p || p === "[DONE]") continue;
+        try {
+          const j = JSON.parse(p);
+          const d = j?.choices?.[0]?.delta;
+          if (d?.content) { full += d.content; opts?.onProgress?.({ phase: "stream", text: full, chars: full.length }); }
+          else if (d?.reasoning_content || d?.reasoning) opts?.onProgress?.({ phase: "think", text: full, chars: full.length });
+        } catch {}
+      }
+    }
+    return { ok: true, text: full };
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError") return { ok: false, aborted: true, error: "Generasi dibatalkan." };
+    return { ok: false, error: `Gagal menghubungi localhost: ${(e as Error).message}. Pastikan Ollama berjalan dengan OLLAMA_ORIGINS=*` };
+  }
+}
+
+export async function ai(profile: ProviderProfile, op: "test" | "text" | "image", prompt = "", system = "", opts?: AiOpts): Promise<AiResult> {
+  if ((op === "test" || op === "text") && isRemoteHost() && isLoopbackUrl(profile.base_url)) {
+    return directLocalAi(profile, op, prompt, system, opts);
+  }
+  try {
+    if (op === "text") {
+      opts?.onProgress?.({ phase: "connect", text: "", chars: 0 });
+      const r = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        signal: opts?.signal,
+        body: JSON.stringify({ profile, key: getKey(profile.id), op: "stream", prompt, system }),
+      });
+      const ctype = r.headers.get("content-type") || "";
+      if (ctype.includes("application/json")) return await r.json();
+      if (!r.body) return { ok: false, error: "Stream tidak tersedia." };
+
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "", full = "";
+      let errOut: AiResult | null = null;
+
+      const processLine = (line: string) => {
+        if (!line.trim()) return;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.t === "start") opts?.onProgress?.({ phase: "connect", text: full, chars: full.length });
+          else if (msg.t === "think") opts?.onProgress?.({ phase: "think", text: full, chars: full.length });
+          else if (msg.t === "d" && typeof msg.c === "string") {
+            full += msg.c;
+            opts?.onProgress?.({ phase: "stream", text: full, chars: full.length });
+          } else if (msg.t === "err") {
+            errOut = { ok: false, status: msg.status, error: msg.error || "Terjadi kesalahan saat generate." };
+          }
+        } catch {}
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const l of lines) processLine(l);
+      }
+      if (buf.trim()) processLine(buf);
+
+      if (errOut) return full.trim() ? { ...(errOut as AiResult), text: full } : errOut;
+      return { ok: true, text: full };
+    }
+
+    const r = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: opts?.signal,
+      body: JSON.stringify({ profile, key: getKey(profile.id), op, prompt, system }),
+    });
     return await r.json();
   } catch (e) {
-    return { ok: false, error: `Server lokal tidak merespons: ${(e as Error).message}` };
+    if ((e as Error)?.name === "AbortError") return { ok: false, aborted: true, error: "Generasi dibatalkan." };
+    return { ok: false, error: `Koneksi terputus: ${(e as Error).message}` };
   }
 }
 

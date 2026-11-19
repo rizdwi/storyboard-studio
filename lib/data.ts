@@ -163,7 +163,7 @@ export const newProfile = (kind: ProviderKind = "OpenAi"): ProviderProfile => {
   const k = PROVIDER_KINDS.find((p) => p.id === kind)!;
   return {
     id: uid(), name: k.label, kind, base_url: k.base_url, text_model: "", image_model: "",
-    api_version: kind === "Anthropic" ? "2023-06-01" : "", timeout_secs: 60, max_output_tokens: 4096, temperature: 0.8,
+    api_version: kind === "Anthropic" ? "2023-06-01" : "", timeout_secs: 180, max_output_tokens: 4096, temperature: 0.8,
   };
 };
 
