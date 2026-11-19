@@ -24,7 +24,7 @@ export function StepTheme({ p, set, go }: Ctx) {
   const style = STORY_STYLES.find((s) => s.id === p.story_style.preset_id);
   return (
     <section className="page">
-      <p className="eyebrow">Langkah 1 dari 5</p>
+      <p className="eyebrow">Langkah 1 dari 6</p>
       <h1>Tema & premis</h1>
       <p className="lede">Mulai dari satu kalimat ide. Semua langkah berikutnya bisa diubah kapan saja.</p>
       <label className="field">
@@ -51,7 +51,7 @@ export function StepStyle({ p, set, go }: Ctx) {
   const preset = STORY_STYLES.find((s) => s.id === p.story_style.preset_id) ?? STORY_STYLES[0];
   return (
     <section className="page">
-      <p className="eyebrow">Langkah 2 dari 5</p>
+      <p className="eyebrow">Langkah 2 dari 6</p>
       <h1>Gaya cerita</h1>
       <p className="lede">Gaya menentukan struktur beat dan aturan yang dikirim ke model saat generate.</p>
       <div className="style-list" role="radiogroup" aria-label="Preset gaya cerita">
@@ -126,7 +126,7 @@ export function StepScript(ctx: Ctx) {
 
   return (
     <section className="page wide">
-      <p className="eyebrow">Langkah 3 dari 5</p>
+      <p className="eyebrow">Langkah 3 dari 6</p>
       <h1>Script</h1>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "script"} onClick={() => setTab("script")}>Tulis script</button>
@@ -230,7 +230,7 @@ export function StepCharacter({ p, set, go }: Ctx) {
 
   return (
     <section className="page wide">
-      <p className="eyebrow">Langkah 4 dari 5</p>
+      <p className="eyebrow">Langkah 4 dari 6</p>
       <h1>Karakter & gaya visual</h1>
       <p className="lede">Deskripsi karakter dan prefix gaya dikunci ke setiap prompt gambar, supaya semua shot konsisten.</p>
       <div className="two">

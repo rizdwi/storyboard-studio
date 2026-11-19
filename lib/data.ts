@@ -4,6 +4,17 @@
 export type Roll = "A" | "B" | "X";
 export type ShotType = "EWS" | "WS" | "FS" | "MWS" | "MS" | "MCU" | "CU" | "ECU" | "Insert" | "TwoShot";
 
+/** Mesin generate video Langkah 6. omni = Omni 1.2 Flash via Flow (12 kredit/klip),
+    veo-lite = Veo 3.1 - Lite via Flow (kredit Flow), zoom = Ken Burns canvas gratis (0 kredit). */
+export type VideoEngine = "omni" | "veo-lite" | "zoom";
+export type VideoStatus = "idle" | "queued" | "generating" | "done" | "error";
+
+export const VIDEO_ENGINES: { id: VideoEngine; name: string; desc: string; cost: string; flowModel: string }[] = [
+  { id: "omni", name: "Omni 1.2 Flash", desc: "Klip AI gerak + suara, dari keyframe shot. Audio-native.", cost: "12 kredit / klip", flowModel: "Omni 1.2 Flash" },
+  { id: "veo-lite", name: "Veo 3.1 - Lite", desc: "Klip AI gerak, tanpa suara. Hemat kredit.", cost: "Kredit Flow / klip", flowModel: "Veo 3.1 - Lite" },
+  { id: "zoom", name: "Zoom halus (gratis)", desc: "Gambar shot + gerakan kamera Ken Burns. Tanpa AI.", cost: "0 kredit · instan", flowModel: "" },
+];
+
 export interface Shot {
   id: string;
   title: string;
@@ -19,6 +30,10 @@ export interface Shot {
   audio: string;
   image?: string; // data URL hasil unggah/generate, disimpan lokal di IndexedDB
   locked: boolean;
+  video_url?: string; // URL mp4 hasil Flow (Supabase Storage) atau blob lokal
+  video_status?: VideoStatus;
+  video_engine?: VideoEngine;
+  video_error?: string;
 }
 
 export interface ArtStylePreset {
@@ -43,6 +58,7 @@ export interface Project {
   art_prefix_overrides: Record<string, string>; // prefix bawaan yang sudah disunting
   custom_art_styles: ArtStylePreset[];
   shots: Shot[];
+  video_engine?: VideoEngine; // mesin generate Langkah 6 (default "omni")
   updated_at: number;
 }
 
@@ -248,3 +264,25 @@ export const buildPrompt = (p: Project, s: Shot) =>
     s.visual && `Visual: ${s.visual}`,
     "vertical 9:16 composition",
   ].filter(Boolean).join(". ");
+
+/** Prompt yang diketik worker ke agen Flow untuk satu shot. Flow TIDAK punya kontrol
+    durasi — durasi diminta lewat teks, agen yang menentukan (contoh: klip 4 dtk). */
+export const buildVideoPrompt = (p: Project, s: Shot) => {
+  const secs = Math.max(1, Math.round(s.duration_ms / 1000));
+  return [
+    `Video vertikal 9:16, durasi sekitar ${secs} detik, gaya ${activeArt(p).name}.`,
+    s.visual && `Visual: ${s.visual}`,
+    s.action && `Aksi: ${s.action}`,
+    `${shotLabel(s.shot_type)} shot, ${s.camera_angle}, gerakan kamera ${s.camera_movement}.`,
+    s.audio && `Audio/narasi: ${s.audio}`,
+    "Tanpa teks terbakar di dalam video.",
+  ].filter(Boolean).join(" ");
+};
+
+/** Perkiraan kredit Flow untuk generate semua shot yang belum punya klip. */
+export const flowCreditEstimate = (p: Project) => {
+  const engine = p.video_engine ?? "omni";
+  const pending = p.shots.filter((s) => s.video_status !== "done" || !s.video_url).length;
+  if (engine === "zoom") return { pending, perClip: 0, total: 0 };
+  return { pending, perClip: 12, total: pending * 12 };
+};

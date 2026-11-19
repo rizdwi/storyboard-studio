@@ -6,6 +6,7 @@ import { ai, db, fetchServerKeys, getKey, loadSettings, readFile, saveSettings }
 import type { AiOpts, AiResult, ServerKeys, Settings as S } from "@/lib/store";
 import { cloudDelete, cloudList, cloudUpsert, mergeProjects } from "@/lib/cloudSync";
 import { StepCharacter, StepScript, StepStyle, StepTheme } from "./Steps";
+import { StepVideo } from "./StepVideo";
 import Board from "./Board";
 import Settings from "./Settings";
 
@@ -26,6 +27,7 @@ const STEPS = [
   { full: "Script", short: "Script" },
   { full: "Karakter & Visual", short: "Visual" },
   { full: "Board", short: "Board" },
+  { full: "Video", short: "Video" },
 ];
 
 export default function Studio() {
@@ -206,6 +208,7 @@ export default function Studio() {
         {step === 3 && <StepScript {...ctx} />}
         {step === 4 && <StepCharacter {...ctx} />}
         {step === 5 && <Board {...ctx} />}
+        {step === 6 && <StepVideo {...ctx} />}
       </main>
 
       {showSettings && <Settings settings={settings} update={updateSettings} onClose={() => setShowSettings(false)} />}

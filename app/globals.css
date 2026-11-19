@@ -1892,6 +1892,22 @@ textarea {
 
 /* Tablet / small-laptop reflow */
 
+@media (max-width: 1400px) {
+  /* 6 langkah tidak muat satu baris dengan label penuh di bawah 1400px:
+     pakai label pendek supaya tombol Video tidak tertutup .bar-end. */
+  .step-full {
+    display: none;
+  }
+
+  .step-short {
+    display: inline;
+  }
+
+  .step {
+    padding: 0.4rem 0.45rem;
+  }
+}
+
 @media (max-width: 1060px) {
   .bar {
     flex-wrap: wrap;
@@ -2135,5 +2151,185 @@ textarea {
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+}
+
+/* Langkah 6: Video */
+
+.credit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pill.pro {
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  color: #ffffff;
+}
+
+.pill.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border: 1px solid var(--ok);
+}
+
+.vengines {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.vengine {
+  border-radius: 20px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.vengine.on {
+  border-color: var(--accent);
+}
+
+.vengine input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vengine .name {
+  font-weight: 700;
+}
+
+.vengine .desc {
+  font-size: 0.84rem;
+  color: var(--ink-2);
+}
+
+.vengine .cost {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.vshots {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.vshot {
+  display: grid;
+  grid-template-columns: 3.4rem minmax(0, 1fr) auto auto auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.6rem 0.8rem;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.vthumb {
+  width: 3.4rem;
+  aspect-ratio: 9 / 16;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #3b2d6b, #0e7490);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #ffffff;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.vthumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vshot-main {
+  min-width: 0;
+}
+
+.vshot-main .t {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.vshot-main .s {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+}
+
+.vbadge {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.vbadge.done {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.vbadge.busy {
+  background: rgba(139, 92, 246, 0.22);
+  color: #c4b5fd;
+}
+
+.vbadge.idle {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.vbadge.err {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.vpreview {
+  width: 100%;
+  max-width: 22rem;
+  aspect-ratio: 9 / 16;
+  margin: 0.6rem 0 0.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #000000;
+}
+
+@media (max-width: 660px) {
+  .vengines {
+    grid-template-columns: 1fr;
+  }
+
+  .vshot {
+    grid-template-columns: 3rem minmax(0, 1fr) auto;
+  }
+
+  .vshot .btn,
+  .vshot a.btn {
+    grid-column: 2 / -1;
+    justify-self: start;
   }
 }
