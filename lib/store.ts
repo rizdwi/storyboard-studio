@@ -1,7 +1,7 @@
 "use client";
 // Penyimpanan lokal: proyek (termasuk gambar) di IndexedDB, pengaturan & key di localStorage.
 // Key tidak pernah masuk ke objek proyek, sehingga tidak ikut autosave maupun ekspor.
-import { newProfile, defaultProfiles, DEFAULT_GEMINI_ID } from "./data";
+import { newProfile, defaultProfiles, DEFAULT_GEMINI_ID, DEFAULT_WEB_ID } from "./data";
 import type { Project, ProviderProfile } from "./data";
 
 const DB = "storyboard-studio", STORE = "projects";
@@ -68,22 +68,26 @@ export const setKey = (profileId: string, key: string) => {
 export const keyHint = (profileId: string) => { const k = getKey(profileId); return k ? `••••${k.slice(-4)}` : ""; };
 
 /** Status key server (tanpa nilai): UI memakai ini untuk menandai profil bawaan sebagai siap. */
-export type ServerKeys = { gemini: boolean; geminiImage: boolean };
+export type ServerKeys = { gemini: boolean; geminiImage: boolean; web: boolean };
 let serverKeysCache: ServerKeys | null = null;
 export const fetchServerKeys = async (): Promise<ServerKeys> => {
   if (serverKeysCache) return serverKeysCache;
   try {
-    const r = await fetch("/api/ai");
-    const j = await r.json();
+    const [a, w] = await Promise.all([
+      fetch("/api/ai").then((r) => r.json()).catch(() => null),
+      fetch("/api/web-ai").then((r) => r.json()).catch(() => null),
+    ]);
     serverKeysCache = {
-      gemini: !!j?.serverKeys?.gemini,
-      geminiImage: !!j?.serverKeys?.geminiImage,
+      gemini: !!a?.serverKeys?.gemini,
+      geminiImage: !!a?.serverKeys?.geminiImage,
+      web: !!w?.web,
     };
-  } catch { serverKeysCache = { gemini: false, geminiImage: false }; }
+  } catch { serverKeysCache = { gemini: false, geminiImage: false, web: false }; }
   return serverKeysCache;
 };
 export const serverKeyFor = (profileId: string, op: "text" | "image"): boolean => {
   if (!serverKeysCache) return false;
+  if (profileId === DEFAULT_WEB_ID) return serverKeysCache.web;
   if (profileId === DEFAULT_GEMINI_ID) return op === "image" ? (serverKeysCache.geminiImage || serverKeysCache.gemini) : serverKeysCache.gemini;
   return false;
 };
@@ -165,7 +169,37 @@ async function directLocalAi(profile: ProviderProfile, op: "test" | "text", prom
   }
 }
 
+/** Bridge Gemini web (gemini.google.com) via cookie sesi server (/api/web-ai). */
+async function webAi(profile: ProviderProfile, op: "test" | "text" | "image", prompt = "", system = "", opts?: AiOpts): Promise<AiResult> {
+  const model = (op === "image" ? (profile.image_model || profile.text_model) : profile.text_model) || "hydrogen";
+  const fullPrompt = op === "image" ? prompt : [system, prompt].filter(Boolean).join("\n\n");
+  opts?.onProgress?.({ phase: "connect", text: "", chars: 0 });
+  try {
+    const r = await fetch("/api/web-ai", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: opts?.signal,
+      body: JSON.stringify({ op, prompt: fullPrompt, model, extended_thinking: !!profile.extended_thinking }),
+    });
+    const j = await r.json();
+    if (!j?.ok) return { ok: false, status: r.status, error: j?.error || "Bridge web gagal." };
+    if (op === "test") return { ok: true, text: j.text || "Terhubung ke Gemini web." };
+    if (op === "image") {
+      const img = (j.images || [])[0];
+      if (!img) return { ok: false, error: "Gemini web tidak mengembalikan gambar." };
+      return { ok: true, image: img };
+    }
+    const text = j.text || "";
+    opts?.onProgress?.({ phase: "stream", text, chars: text.length });
+    return { ok: true, text };
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError") return { ok: false, aborted: true, error: "Generasi dibatalkan." };
+    return { ok: false, error: `Koneksi terputus: ${(e as Error).message}` };
+  }
+}
+
 export async function ai(profile: ProviderProfile, op: "test" | "text" | "image", prompt = "", system = "", opts?: AiOpts): Promise<AiResult> {
+  if (profile.kind === "GeminiWeb") return webAi(profile, op, prompt, system, opts);
   if ((op === "test" || op === "text") && isRemoteHost() && isLoopbackUrl(profile.base_url)) {
     return directLocalAi(profile, op, prompt, system, opts);
   }

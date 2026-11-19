@@ -46,7 +46,7 @@ export interface Project {
   updated_at: number;
 }
 
-export type ProviderKind = "OpenAi" | "Anthropic" | "Gemini" | "XaiGrok" | "OpenRouter" | "OllamaLocal" | "OpenAiCompatible";
+export type ProviderKind = "OpenAi" | "Anthropic" | "Gemini" | "XaiGrok" | "OpenRouter" | "OllamaLocal" | "OpenAiCompatible" | "GeminiWeb";
 
 export interface ProviderProfile {
   id: string;
@@ -59,6 +59,7 @@ export interface ProviderProfile {
   timeout_secs: number;
   max_output_tokens: number;
   temperature: number;
+  extended_thinking?: boolean; // Gemini Web: penalaran ekstra (Tingkat penalaran)
 }
 
 export const uid = () => crypto.randomUUID();
@@ -154,6 +155,7 @@ export const PROVIDER_KINDS: { id: ProviderKind; label: string; base_url: string
   { id: "OpenAi", label: "OpenAI", base_url: "https://api.openai.com/v1", textHint: "mis. gpt-4.1-mini", imageHint: "mis. gpt-image-1", needsKey: true },
   { id: "Anthropic", label: "Anthropic", base_url: "https://api.anthropic.com", textHint: "mis. claude-sonnet-4-5", imageHint: "tidak didukung", needsKey: true },
   { id: "Gemini", label: "Google Gemini", base_url: "https://generativelanguage.googleapis.com", textHint: "mis. gemini-3.8-flash", imageHint: "mis. gemini-2.5-flash-image", needsKey: true },
+  { id: "GeminiWeb", label: "Gemini Web (Cookie)", base_url: "", textHint: "hydrogen, neon, atau carbon", imageHint: "sama dengan model teks", needsKey: false },
   { id: "XaiGrok", label: "Grok / xAI", base_url: "https://api.x.ai/v1", textHint: "mis. grok-4", imageHint: "mis. grok-2-image", needsKey: true },
   { id: "OpenRouter", label: "OpenRouter", base_url: "https://openrouter.ai/api/v1", textHint: "mis. anthropic/claude-sonnet-4.5", imageHint: "mis. google/gemini-2.5-flash-image", needsKey: true },
   { id: "OllamaLocal", label: "Ollama Lokal", base_url: "http://localhost:11434/v1", textHint: "mis. llama3.1", imageHint: "tidak didukung", needsKey: false },
@@ -172,6 +174,9 @@ export const newProfile = (kind: ProviderKind = "OpenAi"): ProviderProfile => {
     Key TIDAK disimpan di sini — key dibaca dari env server (/api/ai) bila profil belum punya key sendiri.
     Hydrogen (9Router) DIHAPUS 19 Nov atas perintah user: tanpa tunnel, tanpa Hermes/InstaBox. */
 export const DEFAULT_GEMINI_ID = "default-gemini-google";
+/** Profil Gemini Web (cookie sesi Google, via /api/web-ai): model web Hydrogen/Neon/Carbon.
+    Cookie TIDAK disimpan di sini — dibaca dari env server (GEMINI_WEB_PSID + GEMINI_WEB_PSIDTS). */
+export const DEFAULT_WEB_ID = "default-gemini-web";
 
 export const defaultProfiles = (): ProviderProfile[] => [
   {
@@ -179,6 +184,12 @@ export const defaultProfiles = (): ProviderProfile[] => [
     base_url: "https://generativelanguage.googleapis.com", text_model: "gemini-3.8-flash",
     image_model: "gemini-2.5-flash-image", api_version: "", timeout_secs: 180,
     max_output_tokens: 8192, temperature: 0.8,
+  },
+  {
+    id: DEFAULT_WEB_ID, name: "Gemini Web", kind: "GeminiWeb",
+    base_url: "", text_model: "hydrogen", image_model: "hydrogen",
+    api_version: "", timeout_secs: 180, max_output_tokens: 8192, temperature: 0.8,
+    extended_thinking: true,
   },
 ];
 

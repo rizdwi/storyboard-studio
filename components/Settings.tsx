@@ -135,7 +135,7 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                         <span className="prof-sub dim">
                           {PROVIDER_KINDS.find((k) => k.id === p.kind)?.label}
                           {" · "}
-                          {noKeyNeeded ? "Lokal" : hasK ? (hasLocalK ? "Key tersimpan" : "Key server") : "Belum ada key"}
+                          {p.kind === "GeminiWeb" ? (serverKeyFor(p.id, "text") ? "Cookie server" : "Cookie belum dipasang") : noKeyNeeded ? "Lokal" : hasK ? (hasLocalK ? "Key tersimpan" : "Key server") : "Belum ada key"}
                         </span>
                         {roles.length > 0 && <span className="prof-role">{roles.join(" + ")}</span>}
                       </button>
@@ -175,6 +175,12 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                   <small>Koneksi langsung via HTTPS. HTTP tanpa TLS hanya diizinkan untuk localhost atau 127.0.0.1.</small>
                 </label>
 
+                {active.kind === "GeminiWeb" ? (
+                  <div className="field">
+                    <span>Cookie sesi Google (server)</span>
+                    <p className="dim">Profil ini memakai cookie sesi Google dari server (env GEMINI_WEB_PSID + GEMINI_WEB_PSIDTS di Vercel). Tidak perlu API key — limit ikut akun web Gemini kamu, bukan API.</p>
+                  </div>
+                ) : (
                 <div className="field">
                   <span>API Key {kindMeta.needsKey ? (savedHint ? `(tersimpan: ${savedHint})` : serverKeyFor(active.id, "text") ? "(key server aktif)" : "(kosong)") : "(opsional untuk Ollama lokal)"}</span>
                   <div className="key-row">
@@ -189,6 +195,7 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                     )}
                   </div>
                 </div>
+                )}
 
                 <div className="two">
                   <label className="field">
@@ -203,6 +210,14 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                       onChange={(e) => patchProfile(active.id, { image_model: e.target.value })} />
                   </label>
                 </div>
+
+                {active.kind === "GeminiWeb" && (
+                  <label className="field" style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
+                    <input type="checkbox" checked={!!active.extended_thinking}
+                      onChange={(e) => patchProfile(active.id, { extended_thinking: e.target.checked })} />
+                    <span>Penalaran ekstra (extended thinking) — jawaban lebih dalam, lebih lambat</span>
+                  </label>
+                )}
 
                 <details className="fold">
                   <summary>Pengaturan lanjutan (timeout, token, temperature, header)</summary>

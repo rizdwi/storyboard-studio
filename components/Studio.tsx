@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { newProject, PROVIDER_KINDS, DEFAULT_GEMINI_ID } from "@/lib/data";
+import { newProject, PROVIDER_KINDS, DEFAULT_GEMINI_ID, DEFAULT_WEB_ID } from "@/lib/data";
 import type { Project } from "@/lib/data";
 import { ai, db, fetchServerKeys, getKey, loadSettings, readFile, saveSettings } from "@/lib/store";
 import type { AiOpts, AiResult, ServerKeys, Settings as S } from "@/lib/store";
@@ -107,6 +107,7 @@ export default function Studio() {
   const imageProfile = settings.profiles.find((x) => x.id === settings.imageProfileId);
   const hasSrv = (id: string, op: "text" | "image") => {
     if (!serverKeys) return false;
+    if (id === DEFAULT_WEB_ID) return serverKeys.web;
     if (id === DEFAULT_GEMINI_ID) return op === "image" ? (serverKeys.geminiImage || serverKeys.gemini) : serverKeys.gemini;
     return false;
   };
