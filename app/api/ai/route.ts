@@ -286,6 +286,30 @@ async function test(p: ProviderProfile, key?: string): Promise<Out> {
   return { ok: true, status, text: n ? `${n} model tersedia` : "Terhubung" };
 }
 
+/** Key cadangan dari env server — dipakai hanya bila profil belum punya key sendiri (BYOK).
+    Key tidak pernah ditulis ke repo; env diisi di .env.local / Vercel. */
+const envKeyFor = (p: ProviderProfile, op: Body["op"]): string | undefined => {
+  if (p.id === "default-hydrogen-9router") return process.env.NINE_ROUTER_API_KEY || undefined;
+  if (p.kind === "Gemini") {
+    return op === "image"
+      ? process.env.GEMINI_IMAGE_API_KEY || process.env.GEMINI_API_KEY || undefined
+      : process.env.GEMINI_API_KEY || undefined;
+  }
+  return undefined;
+};
+
+/** Status key server (tanpa nilai): dipakai GET /api/ai agar UI tahu profil bawaan sudah siap. */
+export async function GET() {
+  return Response.json({
+    ok: true,
+    serverKeys: {
+      hydrogen: !!process.env.NINE_ROUTER_API_KEY,
+      gemini: !!process.env.GEMINI_API_KEY,
+      geminiImage: !!process.env.GEMINI_IMAGE_API_KEY,
+    },
+  });
+}
+
 export async function POST(req: Request) {
   let b: Body;
   try { b = await req.json(); } catch { return Response.json({ ok: false, error: "Permintaan tidak valid." } satisfies Out, { status: 400 }); }
@@ -298,14 +322,15 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "Base URL tidak valid." } satisfies Out);
   }
+  const key = b.key || envKeyFor(p, b.op);
   try {
-    if (b.op === "test") return Response.json(await test(p, b.key));
+    if (b.op === "test") return Response.json(await test(p, key));
     if (!p.text_model && (b.op === "text" || b.op === "stream")) {
       return Response.json({ ok: false, error: "Model teks belum diisi di profil ini." } satisfies Out);
     }
-    if (b.op === "stream") return streamText(p, b.key, b.system ?? "", b.prompt ?? "");
-    if (b.op === "text") return Response.json({ ok: true, text: await text(p, b.key, b.system ?? "", b.prompt ?? "") } satisfies Out);
-    return Response.json({ ok: true, image: await image(p, b.key, b.prompt ?? "") } satisfies Out);
+    if (b.op === "stream") return streamText(p, key, b.system ?? "", b.prompt ?? "");
+    if (b.op === "text") return Response.json({ ok: true, text: await text(p, key, b.system ?? "", b.prompt ?? "") } satisfies Out);
+    return Response.json({ ok: true, image: await image(p, key, b.prompt ?? "") } satisfies Out);
   } catch (e) {
     if (e instanceof HttpErr) return Response.json({ ok: false, status: e.status, error: e.message } satisfies Out);
     const name = (e as Error)?.name;

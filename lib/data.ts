@@ -168,6 +168,27 @@ export const newProfile = (kind: ProviderKind = "OpenAi"): ProviderProfile => {
   };
 };
 
+/** Profil bawaan: Hydrogen (9Router, untuk naskah) + Gemini Google (untuk gambar & cadangan teks).
+    Key TIDAK disimpan di sini — key dibaca dari env server (/api/ai) bila profil belum punya key sendiri.
+    URL tunnel 9Router adalah quick tunnel; bila box restart, URL berubah dan base_url ini harus diperbarui. */
+export const DEFAULT_HYDROGEN_ID = "default-hydrogen-9router";
+export const DEFAULT_GEMINI_ID = "default-gemini-google";
+export const NINE_ROUTER_BASE_URL = "https://deborah-public-automatic-blair.trycloudflare.com/v1";
+
+export const defaultProfiles = (): ProviderProfile[] => [
+  {
+    id: DEFAULT_HYDROGEN_ID, name: "Hydrogen (9Router)", kind: "OpenAiCompatible",
+    base_url: NINE_ROUTER_BASE_URL, text_model: "slebewai", image_model: "",
+    api_version: "", timeout_secs: 180, max_output_tokens: 8192, temperature: 0.8,
+  },
+  {
+    id: DEFAULT_GEMINI_ID, name: "Gemini (Google)", kind: "Gemini",
+    base_url: "https://generativelanguage.googleapis.com", text_model: "gemini-2.5-flash",
+    image_model: "gemini-2.5-flash-image", api_version: "", timeout_secs: 180,
+    max_output_tokens: 8192, temperature: 0.8,
+  },
+];
+
 export const newShot = (patch: Partial<Shot> = {}): Shot => ({
   id: uid(), title: "", beat: "", start_ms: 0, duration_ms: 3000, rolls: ["A"], shot_type: "MS",
   camera_angle: "Eye-Level", camera_movement: "Static", action: "", visual: "", audio: "", locked: false, ...patch,

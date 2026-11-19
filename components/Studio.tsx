@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { newProject, PROVIDER_KINDS } from "@/lib/data";
+import { newProject, PROVIDER_KINDS, DEFAULT_HYDROGEN_ID, DEFAULT_GEMINI_ID } from "@/lib/data";
 import type { Project } from "@/lib/data";
-import { ai, db, getKey, loadSettings, readFile, saveSettings } from "@/lib/store";
-import type { AiOpts, AiResult, Settings as S } from "@/lib/store";
+import { ai, db, fetchServerKeys, getKey, loadSettings, readFile, saveSettings } from "@/lib/store";
+import type { AiOpts, AiResult, ServerKeys, Settings as S } from "@/lib/store";
+import { cloudDelete, cloudList, cloudUpsert, mergeProjects } from "@/lib/cloudSync";
 import { StepCharacter, StepScript, StepStyle, StepTheme } from "./Steps";
 import Board from "./Board";
 import Settings from "./Settings";
@@ -35,6 +36,7 @@ export default function Studio() {
   const [save, setSave] = useState<"saved" | "pending" | "error">("saved");
   const [showSettings, setShowSettings] = useState(false);
   const [loadErr, setLoadErr] = useState("");
+  const [serverKeys, setServerKeys] = useState<ServerKeys | null>(null);
   const skipSave = useRef(true);
   const menu = useRef<HTMLDetailsElement>(null);
   const booted = useRef(false);
@@ -53,7 +55,17 @@ export default function Studio() {
     booted.current = true;
     const s = loadSettings();
     setSettings(s);
+    fetchServerKeys().then(setServerKeys);
     db.list().then(async (all) => {
+      const remote = await cloudList();
+      if (remote.length) {
+        const merged = mergeProjects(all, remote);
+        for (const m of merged) {
+          const local = all.find((x) => x.id === m.id);
+          if (!local || local.updated_at !== m.updated_at) await db.put(m);
+        }
+        all = merged;
+      }
       let cur = all.find((x) => x.id === s.lastProjectId) ?? all.sort((a, b) => b.updated_at - a.updated_at)[0];
       if (!cur) { cur = newProject(); await db.put(cur); all = [cur]; }
       setList(all);
@@ -81,7 +93,7 @@ export default function Studio() {
     setSave("pending");
     const id = setTimeout(() => {
       const out = { ...p, updated_at: Date.now() };
-      db.put(out).then(() => { setSave("saved"); setList((l) => [out, ...l.filter((x) => x.id !== out.id)]); }).catch(() => setSave("error"));
+      db.put(out).then(() => { setSave("saved"); setList((l) => [out, ...l.filter((x) => x.id !== out.id)]); cloudUpsert(out); }).catch(() => setSave("error"));
     }, 2000);
     return () => clearTimeout(id);
   }, [p]);
@@ -93,22 +105,29 @@ export default function Studio() {
 
   const textProfile = settings.profiles.find((x) => x.id === settings.textProfileId);
   const imageProfile = settings.profiles.find((x) => x.id === settings.imageProfileId);
-  const ready = (prof?: typeof textProfile) => !!prof && (!PROVIDER_KINDS.find((k) => k.id === prof.kind)!.needsKey || !!getKey(prof.id));
+  const hasSrv = (id: string, op: "text" | "image") => {
+    if (!serverKeys) return false;
+    if (id === DEFAULT_HYDROGEN_ID) return serverKeys.hydrogen;
+    if (id === DEFAULT_GEMINI_ID) return op === "image" ? (serverKeys.geminiImage || serverKeys.gemini) : serverKeys.gemini;
+    return false;
+  };
+  const ready = (prof?: typeof textProfile, op: "text" | "image" = "text") => !!prof && (!PROVIDER_KINDS.find((k) => k.id === prof.kind)!.needsKey || !!getKey(prof.id) || hasSrv(prof.id, op));
 
   const ctx: Ctx = {
     p, set, go: setStep,
-    hasText: ready(textProfile),
-    hasImage: ready(imageProfile) && !!imageProfile?.image_model,
+    hasText: ready(textProfile, "text"),
+    hasImage: ready(imageProfile, "image") && !!imageProfile?.image_model,
     aiText: (prompt, system, opts) => textProfile ? ai(textProfile, "text", prompt, system, opts) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Teks. Atur di Pengaturan AI." }),
     aiImage: (prompt, opts) => imageProfile ? ai(imageProfile, "image", prompt, "", opts) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Gambar. Atur di Pengaturan AI." }),
     openSettings: () => setShowSettings(true),
   };
 
   const closeMenu = () => menu.current?.removeAttribute("open");
-  const createProject = async () => { const n = newProject(); await db.put(n); setList((l) => [n, ...l]); openProject(n); closeMenu(); };
+  const createProject = async () => { const n = newProject(); await db.put(n); cloudUpsert(n); setList((l) => [n, ...l]); openProject(n); closeMenu(); };
   const removeProject = async (x: Project) => {
     if (!confirm(`Hapus proyek "${x.title}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     await db.del(x.id);
+    cloudDelete(x.id);
     const rest = list.filter((y) => y.id !== x.id);
     setList(rest);
     if (x.id === p.id) rest[0] ? openProject(rest[0]) : createProject();
@@ -120,6 +139,7 @@ export default function Studio() {
       if (!Array.isArray(data?.shots)) throw new Error("bukan file proyek Storyboard Studio");
       const proj: Project = { ...newProject(), ...data, id: crypto.randomUUID(), updated_at: Date.now() };
       await db.put(proj);
+      cloudUpsert(proj);
       setList((l) => [proj, ...l]);
       openProject(proj);
       closeMenu();
@@ -133,6 +153,7 @@ export default function Studio() {
       <a className="skip" href="#konten">Langsung ke konten</a>
       <header className="bar">
         <div className="bar-start">
+          <span className="logo-mark" aria-hidden="true">S</span>
           <span className="brand">Storyboard Studio</span>
           <details className="menu" ref={menu} onKeyDown={(e) => e.key === "Escape" && closeMenu()}>
             <summary className="btn ghost proj-name" title="Ganti proyek">{p.title || "Proyek tanpa judul"}</summary>

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { newProfile, PROVIDER_KINDS } from "@/lib/data";
 import type { ProviderKind, ProviderProfile } from "@/lib/data";
-import { ai, getKey, keyHint, setKey } from "@/lib/store";
+import { ai, getKey, keyHint, serverKeyFor, setKey } from "@/lib/store";
 import type { AiResult, Settings as S } from "@/lib/store";
 import Progress from "./Progress";
 
@@ -124,7 +124,8 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
             ) : (
               <ul className="prof-list">
                 {settings.profiles.map((p) => {
-                  const hasK = !!getKey(p.id);
+                  const hasLocalK = !!getKey(p.id);
+                  const hasK = hasLocalK || serverKeyFor(p.id, "text");
                   const noKeyNeeded = !PROVIDER_KINDS.find((k) => k.id === p.kind)!.needsKey;
                   const roles = [settings.textProfileId === p.id ? "Teks" : "", settings.imageProfileId === p.id ? "Gambar" : ""].filter(Boolean);
                   return (
@@ -134,7 +135,7 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                         <span className="prof-sub dim">
                           {PROVIDER_KINDS.find((k) => k.id === p.kind)?.label}
                           {" · "}
-                          {noKeyNeeded ? "Lokal" : hasK ? "Key tersimpan" : "Belum ada key"}
+                          {noKeyNeeded ? "Lokal" : hasK ? (hasLocalK ? "Key tersimpan" : "Key server") : "Belum ada key"}
                         </span>
                         {roles.length > 0 && <span className="prof-role">{roles.join(" + ")}</span>}
                       </button>
@@ -175,7 +176,7 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
                 </label>
 
                 <div className="field">
-                  <span>API Key {kindMeta.needsKey ? (savedHint ? `(tersimpan: ${savedHint})` : "(kosong)") : "(opsional untuk Ollama lokal)"}</span>
+                  <span>API Key {kindMeta.needsKey ? (savedHint ? `(tersimpan: ${savedHint})` : serverKeyFor(active.id, "text") ? "(key server aktif)" : "(kosong)") : "(opsional untuk Ollama lokal)"}</span>
                   <div className="key-row">
                     <input type={showKey ? "text" : "password"} autoComplete="off" spellCheck={false}
                       value={keyDraft} placeholder={kindMeta.needsKey ? "Tempel API key Anda di sini" : "Tidak wajib untuk Ollama lokal"}

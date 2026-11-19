@@ -1,7 +1,7 @@
 "use client";
 // Penyimpanan lokal: proyek (termasuk gambar) di IndexedDB, pengaturan & key di localStorage.
 // Key tidak pernah masuk ke objek proyek, sehingga tidak ikut autosave maupun ekspor.
-import { newProfile } from "./data";
+import { newProfile, defaultProfiles, DEFAULT_HYDROGEN_ID, DEFAULT_GEMINI_ID } from "./data";
 import type { Project, ProviderProfile } from "./data";
 
 const DB = "storyboard-studio", STORE = "projects";
@@ -38,8 +38,15 @@ export interface Settings {
 
 const SKEY = "sbs.settings", KKEY = "sbs.keys";
 export const loadSettings = (): Settings => {
-  const fallback: Settings = { theme: "dark", profiles: [newProfile("OpenAi")], textProfileId: "", imageProfileId: "", lastProjectId: "" };
-  try { return { ...fallback, ...JSON.parse(localStorage.getItem(SKEY) || "{}") }; } catch { return fallback; }
+  const fallback: Settings = { theme: "dark", profiles: defaultProfiles(), textProfileId: DEFAULT_HYDROGEN_ID, imageProfileId: DEFAULT_GEMINI_ID, lastProjectId: "" };
+  try {
+    const s: Settings = { ...fallback, ...JSON.parse(localStorage.getItem(SKEY) || "{}") };
+    // Migrasi: tambahkan profil bawaan yang belum ada (pengguna lama tetap memakai pilihannya sendiri).
+    for (const d of defaultProfiles()) if (!s.profiles.some((p) => p.id === d.id)) s.profiles.push(d);
+    if (!s.textProfileId) s.textProfileId = DEFAULT_HYDROGEN_ID;
+    if (!s.imageProfileId) s.imageProfileId = DEFAULT_GEMINI_ID;
+    return s;
+  } catch { return fallback; }
 };
 export const saveSettings = (s: Settings) => localStorage.setItem(SKEY, JSON.stringify(s));
 
@@ -51,6 +58,29 @@ export const setKey = (profileId: string, key: string) => {
   localStorage.setItem(KKEY, JSON.stringify(k));
 };
 export const keyHint = (profileId: string) => { const k = getKey(profileId); return k ? `••••${k.slice(-4)}` : ""; };
+
+/** Status key server (tanpa nilai): UI memakai ini untuk menandai profil bawaan sebagai siap. */
+export type ServerKeys = { hydrogen: boolean; gemini: boolean; geminiImage: boolean };
+let serverKeysCache: ServerKeys | null = null;
+export const fetchServerKeys = async (): Promise<ServerKeys> => {
+  if (serverKeysCache) return serverKeysCache;
+  try {
+    const r = await fetch("/api/ai");
+    const j = await r.json();
+    serverKeysCache = {
+      hydrogen: !!j?.serverKeys?.hydrogen,
+      gemini: !!j?.serverKeys?.gemini,
+      geminiImage: !!j?.serverKeys?.geminiImage,
+    };
+  } catch { serverKeysCache = { hydrogen: false, gemini: false, geminiImage: false }; }
+  return serverKeysCache;
+};
+export const serverKeyFor = (profileId: string, op: "text" | "image"): boolean => {
+  if (!serverKeysCache) return false;
+  if (profileId === DEFAULT_HYDROGEN_ID) return serverKeysCache.hydrogen;
+  if (profileId === DEFAULT_GEMINI_ID) return op === "image" ? (serverKeysCache.geminiImage || serverKeysCache.gemini) : serverKeysCache.gemini;
+  return false;
+};
 
 export type AiProgress = {
   phase: "connect" | "think" | "stream";
