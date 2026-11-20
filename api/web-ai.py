@@ -65,22 +65,45 @@ async def run(data):
 
     op = (data.get("op") or "text").strip()
     prompt = data.get("prompt") or ""
-    model = (data.get("model") or "hydrogen").strip().lower()
+    # Default "gemini-auto": dari IP Vercel, Google sering hanya mengekspos
+    # model default (registry cuma berisi gemini-auto) sehingga nama web
+    # ("hydrogen"/"neon"/"carbon") ditolak library. Minta "neon" tetap
+    # diteruskan, tapi bila tidak ada di registry, jatuh ke default
+    # daripada gagal — dan laporkan model yang benar-benar dipakai.
+    model = (data.get("model") or "gemini-auto").strip().lower()
     extended = bool(data.get("extended_thinking"))
     client = GeminiClient(secure_1psid=PSID, secure_1psidts=PSIDTS)
     await client.init(auto_refresh=False)
     try:
         if op == "test":
-            names = []
+            discovered = []
             try:
                 reg = getattr(client, "_model_registry", {}) or {}
-                names = [m.display_name for m in reg.values()
-                         if getattr(m, "is_available", True)]
+                discovered = [{"id": m.model_id, "name": m.model_name,
+                               "display": getattr(m, "display_name", ""),
+                               "available": bool(getattr(m, "is_available", True))}
+                              for m in reg.values()]
             except Exception:
-                names = []
-            label = ", ".join(names) if names else "Hydrogen, Neon, Carbon"
-            return {"ok": True, "text": f"Terhubung ke Gemini web. Model: {label}.",
-                    "models": WEB_MODELS}
+                discovered = []
+            status = ""
+            try:
+                st = getattr(client, "account_status", None)
+                status = getattr(st, "name", str(st))
+            except Exception:
+                status = ""
+            names = ", ".join(d["name"] for d in discovered) or "tidak ada"
+            return {"ok": True,
+                    "text": f"Terhubung ke Gemini web. Model tersedia: {names}. Status akun: {status or '?'}",
+                    "models": WEB_MODELS, "discovered": discovered,
+                    "account_status": status}
+        model_used = model
+        model_fallback = False
+        try:
+            client.resolve_model(model)
+        except Exception:
+            model = None
+            model_used = "gemini-auto"
+            model_fallback = True
         out = await client.generate_content(
             prompt, model=model, extended_thinking=extended)
         text = (getattr(out, "text", "") or "").strip()
@@ -106,8 +129,10 @@ async def run(data):
         if op == "image" and not images:
             return {"ok": False,
                     "error": "Gemini web tidak mengembalikan gambar untuk prompt ini. "
-                             "Coba prompt yang lebih visual."}
-        return {"ok": True, "text": text, "images": images}
+                             "Coba prompt yang lebih visual.",
+                    "model_used": model_used, "model_fallback": model_fallback}
+        return {"ok": True, "text": text, "images": images,
+                "model_used": model_used, "model_fallback": model_fallback}
     finally:
         try:
             await client.close()

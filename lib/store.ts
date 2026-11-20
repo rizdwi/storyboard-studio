@@ -171,7 +171,7 @@ async function directLocalAi(profile: ProviderProfile, op: "test" | "text", prom
 
 /** Bridge Gemini web (gemini.google.com) via cookie sesi server (/api/web-ai). */
 async function webAi(profile: ProviderProfile, op: "test" | "text" | "image", prompt = "", system = "", opts?: AiOpts): Promise<AiResult> {
-  const model = (op === "image" ? (profile.image_model || profile.text_model) : profile.text_model) || "hydrogen";
+  const model = (op === "image" ? (profile.image_model || profile.text_model) : profile.text_model) || "gemini-auto";
   const fullPrompt = op === "image" ? prompt : [system, prompt].filter(Boolean).join("\n\n");
   opts?.onProgress?.({ phase: "connect", text: "", chars: 0 });
   try {

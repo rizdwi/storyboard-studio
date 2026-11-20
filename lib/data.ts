@@ -208,7 +208,7 @@ export const defaultProfiles = (): ProviderProfile[] => [
   },
   {
     id: DEFAULT_WEB_ID, name: "Gemini Web", kind: "GeminiWeb",
-    base_url: "", text_model: "hydrogen", image_model: "hydrogen",
+    base_url: "", text_model: "neon", image_model: "neon",
     api_version: "", timeout_secs: 180, max_output_tokens: 8192, temperature: 0.8,
     extended_thinking: true,
   },
