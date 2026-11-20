@@ -9,6 +9,8 @@ import { StepCharacter, StepScript, StepStyle, StepTheme } from "./Steps";
 import { StepVideo } from "./StepVideo";
 import Board from "./Board";
 import Settings from "./Settings";
+import Dashboard from "./Dashboard";
+import Analytics from "./Analytics";
 
 export type Ctx = {
   p: Project;
@@ -30,13 +32,21 @@ const STEPS = [
   { full: "Video", short: "Video" },
 ];
 
+type View = "beranda" | "dashboard" | "analitik" | "pengaturan";
+const VIEWS: { id: View; label: string }[] = [
+  { id: "beranda", label: "Beranda" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "analitik", label: "Analitik" },
+  { id: "pengaturan", label: "Pengaturan" },
+];
+
 export default function Studio() {
   const [settings, setSettings] = useState<S | null>(null);
   const [p, setP] = useState<Project | null>(null);
   const [list, setList] = useState<Project[]>([]);
   const [step, setStep] = useState(1);
+  const [view, setView] = useState<View>("beranda");
   const [save, setSave] = useState<"saved" | "pending" | "error">("saved");
-  const [showSettings, setShowSettings] = useState(false);
   const [loadErr, setLoadErr] = useState("");
   const [serverKeys, setServerKeys] = useState<ServerKeys | null>(null);
   const skipSave = useRef(true);
@@ -49,6 +59,7 @@ export default function Studio() {
     skipSave.current = true;
     setP(proj);
     setStep(proj.shots.length ? 5 : 1);
+    setView("beranda");
     updateSettings((x) => ({ ...x, lastProjectId: proj.id }));
   }, [updateSettings]);
 
@@ -121,7 +132,7 @@ export default function Studio() {
     hasImage: ready(imageProfile, "image") && !!imageProfile?.image_model,
     aiText: (prompt, system, opts) => textProfile ? ai(textProfile, "text", prompt, system, opts) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Teks. Atur di Pengaturan AI." }),
     aiImage: (prompt, opts) => imageProfile ? ai(imageProfile, "image", prompt, "", opts) : Promise.resolve({ ok: false, error: "Belum ada profil untuk peran Gambar. Atur di Pengaturan AI." }),
-    openSettings: () => setShowSettings(true),
+    openSettings: () => setView("pengaturan"),
   };
 
   const closeMenu = () => menu.current?.removeAttribute("open");
@@ -151,12 +162,13 @@ export default function Studio() {
   };
 
   return (
-    <div className="app">
+    <div className={view === "beranda" ? "app app-steps" : "app"}>
       <a className="skip" href="#konten">Langsung ke konten</a>
       <header className="bar">
         <div className="bar-start">
           <span className="logo-mark" aria-hidden="true">S</span>
           <span className="brand">Storyboard Studio</span>
+          {view === "beranda" && (
           <details className="menu" ref={menu} onKeyDown={(e) => e.key === "Escape" && closeMenu()}>
             <summary className="btn ghost proj-name" title="Ganti proyek">{p.title || "Proyek tanpa judul"}</summary>
             <div className="pop" role="menu">
@@ -177,8 +189,30 @@ export default function Studio() {
               </ul>
             </div>
           </details>
+          )}
         </div>
 
+        <nav className="topnav" aria-label="Navigasi utama">
+          {VIEWS.map((v) => (
+            <button key={v.id} className={`navbtn${view === v.id ? " on" : ""}`} aria-current={view === v.id ? "page" : undefined} onClick={() => setView(v.id)}>
+              {v.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="bar-end">
+          <span className={`save ${save}`} role="status">
+            {save === "saved" ? "Tersimpan" : save === "pending" ? "Menyimpan…" : "Gagal menyimpan"}
+          </span>
+          <button className="btn ghost" onClick={() => setView("pengaturan")}>
+            {ctx.hasText ? `AI: ${textProfile!.name}` : "AI belum diatur"}
+          </button>
+          <button className="btn ghost" onClick={() => updateSettings((s) => ({ ...s, theme: s.theme === "dark" ? "light" : "dark" }))}>
+            {settings.theme === "dark" ? "Tema terang" : "Tema gelap"}
+          </button>
+        </div>
+
+        {view === "beranda" && (
         <nav className="steps" aria-label="Langkah kerja">
           {STEPS.map((s, i) => (
             <button key={s.full} className="step" aria-current={step === i + 1 ? "step" : undefined} onClick={() => setStep(i + 1)}>
@@ -188,30 +222,39 @@ export default function Studio() {
             </button>
           ))}
         </nav>
-
-        <div className="bar-end">
-          <span className={`save ${save}`} role="status">
-            {save === "saved" ? "Tersimpan" : save === "pending" ? "Menyimpan…" : "Gagal menyimpan"}
-          </span>
-          <button className="btn ghost" onClick={() => setShowSettings(true)}>
-            {ctx.hasText ? `AI: ${textProfile!.name}` : "AI belum diatur"}
-          </button>
-          <button className="btn ghost" onClick={() => updateSettings((s) => ({ ...s, theme: s.theme === "dark" ? "light" : "dark" }))}>
-            {settings.theme === "dark" ? "Tema terang" : "Tema gelap"}
-          </button>
-        </div>
+        )}
       </header>
 
-      <main id="konten" className={step === 5 ? "main board-main" : "main"}>
-        {step === 1 && <StepTheme {...ctx} />}
-        {step === 2 && <StepStyle {...ctx} />}
-        {step === 3 && <StepScript {...ctx} />}
-        {step === 4 && <StepCharacter {...ctx} />}
-        {step === 5 && <Board {...ctx} />}
-        {step === 6 && <StepVideo {...ctx} />}
+      <main id="konten" className={view === "beranda" && step === 5 ? "main board-main" : "main"}>
+        {view === "beranda" && (
+          <>
+            {step === 1 && <StepTheme {...ctx} />}
+            {step === 2 && <StepStyle {...ctx} />}
+            {step === 3 && <StepScript {...ctx} />}
+            {step === 4 && <StepCharacter {...ctx} />}
+            {step === 5 && <Board {...ctx} />}
+            {step === 6 && <StepVideo {...ctx} />}
+          </>
+        )}
+        {view === "dashboard" && <Dashboard projects={list} onOpen={openProject} onNew={createProject} />}
+        {view === "analitik" && <Analytics projects={list} />}
+        {view === "pengaturan" && (
+          <div className="page wide">
+            <p className="eyebrow">Pengaturan</p>
+            <h1>Pengaturan</h1>
+            <p className="lede">Profil AI, peran teks &amp; gambar, dan API key — tersimpan hanya di perangkat ini.</p>
+            <Settings settings={settings} update={updateSettings} onClose={() => setView("beranda")} inline />
+          </div>
+        )}
       </main>
 
-      {showSettings && <Settings settings={settings} update={updateSettings} onClose={() => setShowSettings(false)} />}
+      <nav className="bottomnav" aria-label="Navigasi utama">
+        {VIEWS.map((v) => (
+          <button key={v.id} className={`navbtn${view === v.id ? " on" : ""}`} aria-current={view === v.id ? "page" : undefined} onClick={() => setView(v.id)}>
+            {v.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { ai, getKey, keyHint, serverKeyFor, setKey } from "@/lib/store";
 import type { AiResult, Settings as S } from "@/lib/store";
 import Progress from "./Progress";
 
-export default function Settings({ settings, update, onClose }: { settings: S; update: (fn: (s: S) => S) => void; onClose: () => void }) {
+export default function Settings({ settings, update, onClose, inline }: { settings: S; update: (fn: (s: S) => S) => void; onClose: () => void; inline?: boolean }) {
   const [selectedId, setSelectedId] = useState(settings.textProfileId || settings.profiles[0]?.id || "");
   const [keyDraft, setKeyDraft] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -81,16 +81,17 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
   const kindMeta = active ? PROVIDER_KINDS.find((k) => k.id === active.kind)! : null;
   const savedHint = active ? keyHint(active.id) : "";
 
-  return (
-    <div className="backdrop" role="presentation" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-        <header className="modal-head">
-          <div>
-            <h2 id="settings-title">Pengaturan AI (BYOK)</h2>
-            <p className="dim">API key disimpan hanya di perangkat ini dan tidak pernah ikut dalam file proyek atau ekspor.</p>
-          </div>
-          <button className="btn ghost" onClick={onClose}>Tutup (Esc)</button>
-        </header>
+  // Mode inline (tampilan Pengaturan): konten yang sama tanpa backdrop modal;
+  // tombol tutup kembali ke Beranda.
+  const body = (
+    <div className={inline ? "settings-modal settings-inline" : "modal settings-modal"} role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <header className="modal-head">
+        <div>
+          <h2 id="settings-title">Pengaturan AI (BYOK)</h2>
+          <p className="dim">API key disimpan hanya di perangkat ini dan tidak pernah ikut dalam file proyek atau ekspor.</p>
+        </div>
+        <button className="btn ghost" onClick={onClose}>{inline ? "Kembali ke Beranda" : "Tutup (Esc)"}</button>
+      </header>
 
         <section className="roles" aria-label="Penugasan peran provider">
           <label className="field">
@@ -267,7 +268,13 @@ export default function Settings({ settings, update, onClose }: { settings: S; u
             )}
           </section>
         </div>
-      </div>
+    </div>
+  );
+
+  if (inline) return body;
+  return (
+    <div className="backdrop" role="presentation" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      {body}
     </div>
   );
 }
